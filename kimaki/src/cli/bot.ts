@@ -201,14 +201,13 @@ export function registerStartCommand(cli: Goke) {
       // The agent calls this same install. Prefer the built dist entry, so agent
       // commands skip the tsx loader also when the bot runs from src.
       const distCli = distCliEntry()
-      const kimaki = kimakiShellCommand({
-        command: fs.existsSync(distCli)
-          ? [process.execPath, distCli]
-          : [process.execPath, ...process.execArgv, process.argv[1] ?? 'kimaki'],
-      })
+      const kimakiCommand = fs.existsSync(distCli)
+        ? [process.execPath, distCli]
+        : [process.execPath, ...process.execArgv, process.argv[1] ?? 'kimaki']
+      const kimaki = kimakiShellCommand({ command: kimakiCommand })
 
       const bot = await startBot({
-        kimakiCommand: kimaki,
+        kimakiCommand,
         dataDir,
         token: credentials.token,
         appId: credentials.appId,

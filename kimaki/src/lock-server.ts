@@ -28,15 +28,23 @@ export { DEFAULT_LOCK_PORT }
 // Exit code that tells the supervisor of the root `kimaki` command (cli/bot.ts) to start the bot again.
 export const RESTART_EXIT_CODE = 75
 
-export async function installShim({ dataDir, command }: { dataDir: string; command: string }): Promise<ConfigError | void> {
+const quote = (value: string) => `'${value.replaceAll("'", "'\\''")}'`
+
+// command is the argv of this Kimaki install: the Node that runs the bot, then the CLI entry.
+export async function installShim({ dataDir, command }: { dataDir: string; command: readonly string[] }): Promise<ConfigError | void> {
   const directory = path.join(dataDir, 'bin')
   const created = await fs.promises.mkdir(directory, { recursive: true }).catch((cause) => new ConfigError({ reason: 'Cannot create Kimaki shim directory', cause }))
   if (created instanceof Error) return created
   const file = path.join(directory, process.platform === 'win32' ? 'kimaki.cmd' : 'kimaki')
+  const [node = 'node', ...args] = command
+  // process.execPath is the resolved binary (Homebrew: .../Cellar/node/<version>/bin/node), which a
+  // Node upgrade deletes while the bot keeps running. Fall back to PATH then, like autostart.command.
+  // Only for absolute paths: `[ -x node ]` would test a file in the agent's cwd.
+  const fallback = path.isAbsolute(node) ? `[ -x "$node" ] || node=${quote(path.basename(node))}\n` : ''
   // Bind the shim to its data dir through the env: not every command takes --data-dir.
   const script = process.platform === 'win32'
-    ? `@echo off\r\nset "KIMAKI_DATA_DIR=${dataDir}"\r\n${command} %*\r\n`
-    : `#!/bin/sh\nexport KIMAKI_DATA_DIR='${dataDir.replaceAll("'", "'\\''")}'\nexec ${command} "$@"\n`
+    ? `@echo off\r\nset "KIMAKI_DATA_DIR=${dataDir}"\r\n${command.map((arg) => `"${arg}"`).join(' ')} %*\r\n`
+    : `#!/bin/sh\nexport KIMAKI_DATA_DIR=${quote(dataDir)}\nnode=${quote(node)}\n${fallback}exec "$node" ${args.map(quote).join(' ')} "$@"\n`
   return fs.promises.writeFile(file, script, { mode: 0o700 }).then(() => fs.promises.chmod(file, 0o700))
     .catch((cause) => new ConfigError({ reason: 'Cannot install Kimaki command shim', cause }))
 }

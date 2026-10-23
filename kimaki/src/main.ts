@@ -53,8 +53,8 @@ export type StartBotOptions = {
   // OpenCode's SQLite file (opencodeDbFile()): voice transcription reads the ChatGPT credential from it.
   // Required, so tests never read the developer's real credentials.
   opencodeDbFile: string
-  // Shell command that runs this Kimaki install (given to agents), from kimakiShellCommand().
-  kimakiCommand: string
+  // Argv that runs this Kimaki install (given to agents through the <dataDir>/bin/kimaki shim), Node first.
+  kimakiCommand: readonly string[]
   // Product analytics sink (createAnalytics or disabledAnalytics).
   analytics: Analytics
   // Voice transcription API base URLs; tests point Gemini at a local fake.
